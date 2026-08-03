@@ -6,7 +6,23 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
+train_transform = transforms.Compose(
+    [
+        transforms.Resize((224, 224)),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(10),
+        transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05),
+        transforms.ToTensor(),
+    ]
+)
 
+
+val_test_transform = transforms.Compose(
+    [
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+    ]
+)
 class ColonyDataset(Dataset):
     def __init__(self, csv_path, images_dir, split, transform=None):
         self.df = pd.read_csv(csv_path)
@@ -30,4 +46,16 @@ class ColonyDataset(Dataset):
     def __len__(self):
         return len(self.df)
     
-        
+if __name__ == "__main__":
+    dataset = ColonyDataset(
+        csv_path="data/annotated/nature_colony_labels_split.csv",
+        images_dir="data/raw",
+        split="train",
+        transform=train_transform,
+    )
+    print("Dataset length:", len(dataset))
+    image_tensor, label_index = dataset[0]
+    print("Image shape:", image_tensor.shape)
+    print("Label index:", label_index)
+
+
