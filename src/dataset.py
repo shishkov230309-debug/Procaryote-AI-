@@ -49,7 +49,7 @@ class ColonyDataset(Dataset):
 if __name__ == "__main__":
     dataset = ColonyDataset(
         csv_path="data/annotated/nature_colony_labels_split.csv",
-        images_dir="data/raw",
+        images_dir="data/raw/nature_colony/images/images",
         split="train",
         transform=train_transform,
     )
