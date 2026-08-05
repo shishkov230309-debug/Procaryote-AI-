@@ -10,6 +10,7 @@ from torchvision import transforms
 
 VIT_MEAN = [0.5, 0.5, 0.5]
 VIT_STD = [0.5, 0.5, 0.5]
+
 train_transform = transforms.Compose(
     [
         transforms.Resize((224, 224)),
@@ -58,21 +59,7 @@ class ColonyDataset(Dataset):
         return len(self.df)
 
 
-def configure_vit_classifier(model, num_classes):
-    """Replace the default ViT classification head with a dataset-sized head."""
-    if hasattr(model, "heads") and hasattr(model.heads, "head"):
-        in_features = model.heads.head.in_features
-        model.heads.head = nn.Linear(in_features, num_classes)
-        return model
 
-    if hasattr(model, "classifier"):
-        classifier = model.classifier
-        if isinstance(classifier, nn.Linear):
-            model.classifier = nn.Linear(classifier.in_features, num_classes)
-            return model
-
-    raise ValueError("Unsupported ViT model structure for classifier replacement")
-    
 if __name__ == "__main__":
     dataset = ColonyDataset(
         csv_path="data/annotated/nature_colony_labels_split.csv",
