@@ -20,3 +20,7 @@ def print_trainable_params(model):
     total = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'Trainable params : {trainable:,}/{total:,}({100 * trainable / total:.2f}%)')
+if __name__ == "__main__":
+    model = create_vit_model(num_classes=19)
+    model = freeze_backbone(model, unfreeze_layers=2)
+    print_trainable_params(model)
