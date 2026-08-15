@@ -11,7 +11,7 @@ def freeze_backbone(model, unfreeze_layers : int = 0):
     for param in model.classifier.parameters():
         param.requires_grad = True
     if unfreeze_layers > 0:
-        encoder_blocks = model.vit.encoder.layer
+        encoder_blocks = model.vit.layers
         for block in encoder_blocks[-unfreeze_layers:]:
             for param in block.parameters():
                 param.requires_grad = True
