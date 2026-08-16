@@ -3,10 +3,11 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoImageProcessor
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 from dataset import ColonyDataset
 from model import create_vit_model
-
+from sklearn.metrics import confusion_matrix
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "vit_best.pth"
 PROCESSOR_DIR = ROOT_DIR / "checkpoints" / "vit_image_processor"
@@ -29,7 +30,11 @@ def compute_macro_precision(model, loader, device):
             preds = outputs.logits.argmax(dim=-1)
             all_preds.append(preds.cpu())
             all_labels.append(labels.cpu())
-
+    cm = confusion_matrix(
+            all_preds, all_labels)
+    cm_output = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+    plt.savefig(ROOT_DIR / "confusion_matrix.png")
+    plt.close()
     preds = torch.cat(all_preds)
     labels = torch.cat(all_labels)
     num_classes = int(model.config.num_labels)
@@ -82,7 +87,7 @@ def main():
         model.load_state_dict(state)
 
     precision, precision_per_class = compute_macro_precision(model, test_loader, device)
-
+    
     print(f"Test precision over {test_dataset.num_classes} species: {precision:.4f}")
     for idx, species in enumerate(test_dataset.genus_list):
         print(f"{species}: {precision_per_class[idx].item():.4f}")
