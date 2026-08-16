@@ -28,15 +28,15 @@ def compute_macro_precision(model, loader, device):
 
             outputs = model(pixel_values=images)
             preds = outputs.logits.argmax(dim=-1)
-            all_preds.append(preds.cpu())
-            all_labels.append(labels.cpu())
+            all_preds.extend(preds.cpu())
+            all_labels.extend(labels.cpu())
     cm = confusion_matrix(
             all_preds, all_labels)
     cm_output = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
     plt.savefig(ROOT_DIR / "confusion_matrix.png")
     plt.close()
-    preds = torch.cat(all_preds)
-    labels = torch.cat(all_labels)
+    preds = torch.stack(all_preds)
+    labels = torch.stack(all_labels)
     num_classes = int(model.config.num_labels)
 
     true_positives = torch.zeros(num_classes, dtype=torch.float32)
