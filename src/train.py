@@ -80,7 +80,7 @@ def main():
     )
 
     model = create_vit_model(num_classes=19, model_name=MODEL_NAME)
-    model = freeze_backbone(model, unfreeze_layers=2)
+    model = freeze_backbone(model, unfreeze_layers=4)
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
