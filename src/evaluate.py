@@ -51,7 +51,7 @@ def compute_macro_precision(model, loader, device):
     plt.tight_layout()
     plt.savefig(ROOT_DIR / "confusion_matrix.png", dpi=200)
     plt.close()
-
+    plt.show()
     preds = torch.stack(all_preds)
     labels = torch.stack(all_labels)
     num_classes = int(model.config.num_labels)
