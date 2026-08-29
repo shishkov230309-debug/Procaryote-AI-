@@ -8,6 +8,7 @@ import seaborn as sns
 from dataset import ColonyDataset
 from model import create_vit_model
 from sklearn.metrics import confusion_matrix
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "vit_best.pth"
 PROCESSOR_DIR = ROOT_DIR / "checkpoints" / "vit_image_processor"
@@ -30,11 +31,27 @@ def compute_macro_precision(model, loader, device):
             preds = outputs.logits.argmax(dim=-1)
             all_preds.extend(preds.cpu())
             all_labels.extend(labels.cpu())
-    cm = confusion_matrix(
-            all_preds, all_labels)
-    cm_output = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-    plt.savefig(ROOT_DIR / "confusion_matrix.png")
+    labels = loader.dataset.genus_list
+    cm = confusion_matrix(all_labels, all_preds, labels=list(range(len(labels))))
+
+    plt.figure(figsize=(14, 12))
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+        xticklabels=labels,
+        yticklabels=labels,
+    )
+    plt.xlabel("Predicted genus")
+    plt.ylabel("Actual genus")
+    plt.title("Confusion Matrix")
+    plt.xticks(rotation=45, ha="right")
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.savefig(ROOT_DIR / "confusion_matrix.png", dpi=200)
     plt.close()
+
     preds = torch.stack(all_preds)
     labels = torch.stack(all_labels)
     num_classes = int(model.config.num_labels)
