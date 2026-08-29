@@ -54,7 +54,7 @@ def predict_species(image):
     if image is None:
         return "Please upload an image first."
 
-    image = Image.open(image).convert("RGB")
+    image = Image.convert("RGB")
     inputs = IMAGE_PROCESSOR(images=image, return_tensors="pt")
     inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
 
