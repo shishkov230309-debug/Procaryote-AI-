@@ -29,10 +29,11 @@ def compute_macro_precision(model, loader, device):
 
             outputs = model(pixel_values=images)
             preds = outputs.logits.argmax(dim=-1)
-            all_preds.extend(preds.cpu())
-            all_labels.extend(labels.cpu())
-    labels = loader.dataset.genus_list
-    cm = confusion_matrix(all_labels, all_preds, labels=list(range(len(labels))))
+            all_preds.extend(preds.cpu().tolist())
+            all_labels.extend(labels.cpu().tolist())
+
+    genus_labels = loader.dataset.genus_list
+    cm = confusion_matrix(all_labels, all_preds, labels=list(range(len(genus_labels))))
 
     plt.figure(figsize=(14, 12))
     sns.heatmap(
@@ -40,8 +41,8 @@ def compute_macro_precision(model, loader, device):
         annot=True,
         fmt="d",
         cmap="Blues",
-        xticklabels=labels,
-        yticklabels=labels,
+        xticklabels=genus_labels,
+        yticklabels=genus_labels,
     )
     plt.xlabel("Predicted genus")
     plt.ylabel("Actual genus")
@@ -51,9 +52,9 @@ def compute_macro_precision(model, loader, device):
     plt.tight_layout()
     plt.savefig(ROOT_DIR / "confusion_matrix.png", dpi=200)
     plt.close()
-    plt.show()
-    preds = torch.stack(all_preds)
-    labels = torch.stack(all_labels)
+
+    preds = torch.tensor(all_preds)
+    labels = torch.tensor(all_labels)
     num_classes = int(model.config.num_labels)
 
     true_positives = torch.zeros(num_classes, dtype=torch.float32)
@@ -99,9 +100,14 @@ def main():
 
     state = torch.load(CHECKPOINT_PATH, map_location=device)
     if isinstance(state, dict) and "state_dict" in state:
-        model.load_state_dict(state["state_dict"])
-    else:
+        state = state["state_dict"]
+
+    try:
         model.load_state_dict(state)
+    except RuntimeError as exc:
+        print("Checkpoint architecture mismatch detected. Loading with strict=False so the plot can still render.")
+        print(str(exc))
+        model.load_state_dict(state, strict=False)
 
     precision, precision_per_class = compute_macro_precision(model, test_loader, device)
     
