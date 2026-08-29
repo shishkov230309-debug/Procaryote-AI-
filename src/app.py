@@ -49,12 +49,34 @@ def _load_model_and_processor():
 MODEL, IMAGE_PROCESSOR, DEVICE = _load_model_and_processor()
 
 
-@torch.inference_mode()
-def predict_species(image):
-    if image is None:
-        return "Please upload an image first."
+def _to_rgb_image(image_input):
+    if image_input is None or image_input == "":
+        raise ValueError("Please upload an image first.")
 
-    image = image.convert("RGB")
+    if isinstance(image_input, str):
+        image_path = Path(image_input)
+        if not image_path.exists():
+            raise FileNotFoundError(f"Image file not found: {image_input}")
+        with Image.open(image_path) as img:
+            return img.convert("RGB")
+
+    if hasattr(image_input, "convert"):
+        return image_input.convert("RGB")
+
+    if hasattr(image_input, "read"):
+        image_obj = Image.open(image_input)
+        return image_obj.convert("RGB")
+
+    raise TypeError(f"Unsupported image type: {type(image_input)}")
+
+
+@torch.inference_mode()
+def predict_species(image_input):
+    try:
+        image = _to_rgb_image(image_input)
+    except Exception as exc:
+        return f"Image error: {exc}"
+
     inputs = IMAGE_PROCESSOR(images=image, return_tensors="pt")
     inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
 
@@ -70,10 +92,10 @@ def predict_species(image):
 
 demo = gr.Interface(
     fn=predict_species,
-    inputs=gr.Image(type="pil", label="Upload colony image"),
+    inputs=gr.Image(type="filepath", label="Upload colony image"),
     outputs=gr.Textbox(label="Prediction"),
     title="Procaryote AI Colony Classifier",
-    description="Upload a colony image and the model will predict the most likely bacterial genus.",
+    description="Upload any local image file (.jpg, .png, .jpeg, .bmp, .webp, etc.).",
 )
 
 
