@@ -220,6 +220,6 @@ data/
 *.png
 *.csv
 *.pth
-*.json
+
 #Pycache
 __pycache__/
