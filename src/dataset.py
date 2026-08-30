@@ -17,13 +17,13 @@ train_augment = transforms.Compose(
 )
 
 class ColonyDataset(Dataset):
-    def __init__(self, csv_path, images_dir, split, image_processor=None, transform=None):
+    def __init__(self, csv_path, split, image_processor=None, transform=None):
         self.df = pd.read_csv(csv_path)
         self.genus_list = sorted(self.df["genus"].dropna().unique())
         self.genus_to_idx = {genus: idx for idx, genus in enumerate(self.genus_list)}
 
         self.df = self.df[self.df["split"] == split].reset_index(drop=True)
-        self.images_dir = images_dir
+        
         self.image_processor = image_processor
         self.transform = transform
 
@@ -33,7 +33,7 @@ class ColonyDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        image_path = os.path.join(self.images_dir, row["filename"])
+        image_path = row["filename"]
         image = Image.open(image_path).convert("RGB")
 
         if self.transform is not None:
@@ -54,8 +54,7 @@ class ColonyDataset(Dataset):
 if __name__ == "__main__":
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     dataset = ColonyDataset(
-        csv_path="data/annotated/nature_colony_labels_split.csv",
-        images_dir="data/raw/nature_colony/images/images",
+        csv_path="data/annotated/merged_labels_split.csv",
         split="train",
         image_processor=image_processor,
         transform=train_augment,
