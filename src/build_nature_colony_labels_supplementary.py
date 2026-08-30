@@ -25,8 +25,8 @@ OUTPUT_CSV = Path("data/annotated/nature_colony_labels_supplementary.csv")
 SPECIES_MAP = {
     "sp04": {"species_code": "bce", "genus": "bacillus_cereus", "gram": "positive", "agar": "BAP"},
     "sp11": {"species_code": "eco", "genus": "escherichia_coli", "gram": "negative", "agar": "Nutrient"},
-    "sp13": {"species_code": "kpn", "genus": "klebsiella_pneumoniae", "gram": "negative", "agar": "MAC"},
-    "sp20": {"species_code": "ses", "genus": "salmonella_enterica", "gram": "negative", "agar": "SS"},
+    "sp13": {"species_code": "kpn", "genus": "klebsiella_pneumoniae", "gram": "negative", "agar": "BAP"},
+    "sp20": {"species_code": "ses", "genus": "salmonella_enterica", "gram": "negative", "agar": "Nutrient"},
     "sp21": {"species_code": "sau", "genus": "staphylococcus_aureus", "gram": "positive", "agar": "BAP"},
     "sp23": {"species_code": "sag", "genus": "streptococcus_agalactiae", "gram": "positive", "agar": "BAP"},
 }
