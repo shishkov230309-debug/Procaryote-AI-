@@ -37,7 +37,7 @@ SPECIES_MAP = {
     "bce": {"genus": "bacillus_cereus", "gram": "positive", "agar": "BAP"},
     "spy": {"genus": "streptococcus_pyogenes", "gram": "positive", "agar": "BAP"},
     "sag": {"genus": "streptococcus_agalactiae", "gram": "positive", "agar": "BAP"},
-    "ppu": {"genus": "pseudomonas_putida", "gram": "positive", "agar": "BAP"},
+    "ppu": {"genus": "pseudomonas_putida", "gram": "negative", "agar": "BAP"},
     "spn": {"genus": "streptococcus_pneumoniae", "gram": "positive", "agar": "BAP"},
     "bcp": {"genus": "burkholderia_cepacia", "gram": "negative", "agar": "MAC"},
 }
