@@ -9,4 +9,4 @@ supplemental['source_dataset'] = '22022540'
 merged = pd.concat([nature, supplemental], ignore_index=True)
 merged.to_csv('data/annotated/merged_labels.csv', index=False)
 
-print(merged.groupby(['species', 'source_dataset']).size())
+print(merged.groupby(['genus', 'source_dataset']).size())
