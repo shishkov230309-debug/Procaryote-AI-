@@ -12,17 +12,18 @@ With 50 images per species, that's roughly 35/7/8 per species.
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-INPUT_CSV = "data/annotated/nature_colony_labels.csv"
-OUTPUT_CSV = "data/annotated/nature_colony_labels_split.csv"
+INPUT_CSV = "data/annotated/merged_labels.csv"
+OUTPUT_CSV = "data/annotated/merged_labels_split.csv"
 
 df = pd.read_csv(INPUT_CSV)
 print(f"Loaded {len(df)} images across {df['genus'].nunique()} species")
 
+df['strat_key'] = df['genus'] + '_' + df['source_dataset']
 # First split: separate out the test set (15%)
 train_val_df, test_df = train_test_split(
     df,
     test_size=0.15,
-    stratify=df["genus"],   # keeps species proportions equal in both halves
+    stratify=df["strat_key"],   # keeps species proportions equal in both halves
     random_state=42          # makes the split reproducible every time you run this
 )
 
@@ -31,7 +32,7 @@ train_val_df, test_df = train_test_split(
 train_df, val_df = train_test_split(
     train_val_df,
     test_size=0.1765,
-    stratify=train_val_df["genus"],
+    stratify=train_val_df["strat_key"],
     random_state=42
 )
 
