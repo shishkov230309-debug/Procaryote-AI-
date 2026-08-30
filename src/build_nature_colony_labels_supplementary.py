@@ -62,7 +62,7 @@ for image_file in sorted(IMAGES_DIR.glob("*.jpg")):
     num_colonies = len(lines)
     rows.append(
         {
-            "filename": image_file.name,
+            "filename": str(image_file),
             "label_file": label_file.name,
             "species_code": legacy_code,
             "genus": species_info["genus"],

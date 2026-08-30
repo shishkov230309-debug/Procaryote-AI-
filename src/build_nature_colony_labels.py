@@ -73,9 +73,10 @@ for species_code in sorted(os.listdir(IMAGES_DIR)):
         with open(label_file) as f:
             lines = [l.strip() for l in f if l.strip()]
         num_colonies = len(lines)
+        n = img_file.stem.split('_')[-1]  # Extract the number from the filename
 
         rows.append({
-            "filename": f"{species_code}/{img_file.name}",
+            "filename":f"data/raw/nature_colony/images/images/{species_code}/{species_code}_{n}.jpg",
             "label_file": f"{species_code}_txt/{label_file.name}",
             "species_code": species_code,
             "genus": species_info["genus"],

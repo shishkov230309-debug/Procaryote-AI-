@@ -43,21 +43,18 @@ def main():
     image_processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
 
     train_dataset = ColonyDataset(
-        csv_path="data/annotated/nature_colony_labels_split.csv",
-        images_dir="data/raw/nature_colony/images/images",
+        csv_path="data/annotated/merged_labels_split.csv",
         split="train",
         image_processor=image_processor,
         transform=train_augment,
     )
     val_dataset = ColonyDataset(
-        csv_path="data/annotated/nature_colony_labels_split.csv",
-        images_dir="data/raw/nature_colony/images/images",
+        csv_path="data/annotated/merged_labels_split.csv",
         split="val",
         image_processor=image_processor,
     )
     test_dataset = ColonyDataset(
-        csv_path="data/annotated/nature_colony_labels_split.csv",
-        images_dir="data/raw/nature_colony/images/images",
+        csv_path="data/annotated/merged_labels_split.csv",
         split="test",
         image_processor=image_processor,
     )
