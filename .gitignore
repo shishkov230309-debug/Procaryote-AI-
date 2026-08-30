@@ -225,4 +225,4 @@ data/
 __pycache__/
 
 #my agents 
-.github 
+.github\agents 
