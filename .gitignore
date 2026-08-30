@@ -216,7 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-data/raw/nature_colony
-
+data/
+*.png
+*.csv
+*.pth
+*.json
 #Pycache
 __pycache__/
