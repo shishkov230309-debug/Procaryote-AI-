@@ -223,3 +223,6 @@ data/
 
 #Pycache
 __pycache__/
+
+#my agents 
+.github 
