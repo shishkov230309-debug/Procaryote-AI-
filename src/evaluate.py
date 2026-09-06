@@ -13,8 +13,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "vit_best.pth"
 PROCESSOR_DIR = ROOT_DIR / "checkpoints" / "vit_image_processor"
 MODEL_NAME = "google/vit-base-patch16-224"
-CSV_PATH = ROOT_DIR / "data" / "annotated" / "nature_colony_labels_split.csv"
-IMAGES_DIR = ROOT_DIR / "data" / "raw" / "nature_colony" / "images" / "images"
+CSV_PATH = ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv"
 
 
 def compute_macro_precision(model, loader, device):
@@ -82,9 +81,6 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = create_vit_model(num_classes=19, model_name=MODEL_NAME)
-    model.to(device)
-
     if PROCESSOR_DIR.exists():
         image_processor = AutoImageProcessor.from_pretrained(PROCESSOR_DIR)
     else:
@@ -92,11 +88,13 @@ def main():
 
     test_dataset = ColonyDataset(
         csv_path=str(CSV_PATH),
-        images_dir=str(IMAGES_DIR),
         split="test",
         image_processor=image_processor,
     )
     test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+
+    model = create_vit_model(num_classes=test_dataset.num_classes, model_name=MODEL_NAME)
+    model.to(device)
 
     state = torch.load(CHECKPOINT_PATH, map_location=device)
     if isinstance(state, dict) and "state_dict" in state:
