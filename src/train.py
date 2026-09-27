@@ -7,8 +7,10 @@ from checkpoint import build_checkpoint_metadata, save_checkpoint
 from model import create_vit_model, freeze_backbone
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
 MODEL_NAME = "google/vit-base-patch16-224"
-CHECKPOINT_DIR = Path("checkpoints")
+CHECKPOINT_DIR = ROOT_DIR / "checkpoints"
+TRAINING_CSV_PATH = ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv"
 
 
 def evaluate(model, loader, criterion, device, use_amp):
@@ -44,19 +46,19 @@ def main():
     image_processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
 
     train_dataset = ColonyDataset(
-        csv_path="data/annotated/merged_labels_split.csv",
+        csv_path=TRAINING_CSV_PATH,
         split="train",
         image_processor=image_processor,
         transform=train_augment,
     )
-    class_mapping = build_class_mapping("data/annotated/merged_labels_split.csv")
+    class_mapping = build_class_mapping(TRAINING_CSV_PATH)
     val_dataset = ColonyDataset(
-        csv_path="data/annotated/merged_labels_split.csv",
+        csv_path=TRAINING_CSV_PATH,
         split="val",
         image_processor=image_processor,
     )
     test_dataset = ColonyDataset(
-        csv_path="data/annotated/merged_labels_split.csv",
+        csv_path=TRAINING_CSV_PATH,
         split="test",
         image_processor=image_processor,
     )
@@ -89,7 +91,7 @@ def main():
         class_mapping,
         MODEL_NAME,
         image_processor,
-        "data/annotated/merged_labels_split.csv",
+        TRAINING_CSV_PATH,
     )
 
     num_epochs = 5

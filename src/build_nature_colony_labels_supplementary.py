@@ -15,10 +15,16 @@ import csv
 from collections import Counter
 from pathlib import Path
 
-BASE = Path("data/raw/22022540")
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+BASE = ROOT_DIR / "data" / "raw" / "22022540"
 IMAGES_DIR = BASE / "images"
 LABELS_DIR = BASE / "label" / "annot_YOLO"
-OUTPUT_CSV = Path("data/annotated/nature_colony_labels_supplementary.csv")
+OUTPUT_CSV = ROOT_DIR / "data" / "annotated" / "nature_colony_labels_supplementary.csv"
+
+
+def csv_filename(path):
+    return path.relative_to(ROOT_DIR).as_posix()
 
 # New dataset species prefix -> legacy species metadata that matches the
 # classifier's original genus labels.
@@ -62,7 +68,7 @@ for image_file in sorted(IMAGES_DIR.glob("*.jpg")):
     num_colonies = len(lines)
     rows.append(
         {
-            "filename": str(image_file),
+            "filename": csv_filename(image_file),
             "label_file": label_file.name,
             "species_code": legacy_code,
             "genus": species_info["genus"],
@@ -79,7 +85,7 @@ for image_file in sorted(IMAGES_DIR.glob("*.jpg")):
 
 # Some datasets may use uppercase or JPEG files; include them too.
 for image_file in sorted(IMAGES_DIR.glob("*.jpeg")):
-    if any(row["filename"] == image_file.name for row in rows):
+    if any(row["filename"] == csv_filename(image_file) for row in rows):
         continue
     stem = image_file.stem
     species_prefix = stem.rsplit("_", 1)[0]
@@ -97,7 +103,7 @@ for image_file in sorted(IMAGES_DIR.glob("*.jpeg")):
 
     rows.append(
         {
-            "filename": image_file.name,
+            "filename": csv_filename(image_file),
             "label_file": label_file.name,
             "species_code": species_info["species_code"],
             "genus": species_info["genus"],

@@ -10,10 +10,12 @@ With 50 images per species, that's roughly 35/7/8 per species.
 """
 
 import pandas as pd
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 
-INPUT_CSV = "data/annotated/merged_labels.csv"
-OUTPUT_CSV = "data/annotated/merged_labels_split.csv"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+INPUT_CSV = ROOT_DIR / "data" / "annotated" / "merged_labels.csv"
+OUTPUT_CSV = ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv"
 
 df = pd.read_csv(INPUT_CSV)
 print(f"Loaded {len(df)} images across {df['genus'].nunique()} species")

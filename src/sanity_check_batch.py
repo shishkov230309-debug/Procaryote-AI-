@@ -1,19 +1,20 @@
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoImageProcessor
+from pathlib import Path
 
 from dataset import ColonyDataset, train_augment
 
-
+ROOT_DIR = Path(__file__).resolve().parent.parent
 MODEL_NAME = "google/vit-base-patch16-224"
+CSV_PATH = ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv"
 
 
 def main():
     image_processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
 
     dataset = ColonyDataset(
-        csv_path="data/annotated/nature_colony_labels_split.csv",
-        images_dir="data/raw/nature_colony/images/images",
+        csv_path=CSV_PATH,
         split="train",
         image_processor=image_processor,
         transform=train_augment,

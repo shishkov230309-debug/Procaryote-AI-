@@ -14,10 +14,11 @@ import csv
 from pathlib import Path
 from collections import Counter
 
-BASE = Path("data/raw/nature_colony")
+ROOT_DIR = Path(__file__).resolve().parent.parent
+BASE = ROOT_DIR / "data" / "raw" / "nature_colony"
 IMAGES_DIR = BASE / "images" / "images"
 LABELS_DIR = BASE / "label" / "label" / "YOLO_txt"
-OUTPUT_CSV = Path("data/annotated/nature_colony_labels.csv")
+OUTPUT_CSV = ROOT_DIR / "data" / "annotated" / "nature_colony_labels.csv"
 
 # Verified from Table 1 of the Nature paper
 SPECIES_MAP = {

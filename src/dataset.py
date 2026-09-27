@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pandas as pd
 import torch
@@ -6,6 +7,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 from transformers import AutoImageProcessor
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
 train_augment = transforms.Compose(
@@ -63,7 +66,9 @@ class ColonyDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        image_path = row["filename"]
+        image_path = Path(row["filename"])
+        if not image_path.is_absolute():
+            image_path = ROOT_DIR / image_path
         image = Image.open(image_path).convert("RGB")
 
         if self.transform is not None:
@@ -84,7 +89,7 @@ class ColonyDataset(Dataset):
 if __name__ == "__main__":
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224")
     dataset = ColonyDataset(
-        csv_path="data/annotated/merged_labels_split.csv",
+        csv_path=ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv",
         split="train",
         image_processor=image_processor,
         transform=train_augment,
