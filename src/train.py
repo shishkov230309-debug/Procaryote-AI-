@@ -45,22 +45,25 @@ def main():
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     image_processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
 
+    class_mapping = build_class_mapping(TRAINING_CSV_PATH)
     train_dataset = ColonyDataset(
         csv_path=TRAINING_CSV_PATH,
         split="train",
         image_processor=image_processor,
         transform=train_augment,
+        class_mapping=class_mapping,
     )
-    class_mapping = build_class_mapping(TRAINING_CSV_PATH)
     val_dataset = ColonyDataset(
         csv_path=TRAINING_CSV_PATH,
         split="val",
         image_processor=image_processor,
+        class_mapping=class_mapping,
     )
     test_dataset = ColonyDataset(
         csv_path=TRAINING_CSV_PATH,
         split="test",
         image_processor=image_processor,
+        class_mapping=class_mapping,
     )
 
     train_loader = DataLoader(
