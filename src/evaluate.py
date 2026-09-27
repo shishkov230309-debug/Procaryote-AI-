@@ -6,7 +6,7 @@ from transformers import AutoImageProcessor
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dataset import ColonyDataset
-from model import create_vit_model
+from model import create_vit_model, load_vit_checkpoint
 from sklearn.metrics import confusion_matrix
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -96,16 +96,7 @@ def main():
     model = create_vit_model(num_classes=test_dataset.num_classes, model_name=MODEL_NAME)
     model.to(device)
 
-    state = torch.load(CHECKPOINT_PATH, map_location=device)
-    if isinstance(state, dict) and "state_dict" in state:
-        state = state["state_dict"]
-
-    try:
-        model.load_state_dict(state)
-    except RuntimeError as exc:
-        print("Checkpoint architecture mismatch detected. Loading with strict=False so the plot can still render.")
-        print(str(exc))
-        model.load_state_dict(state, strict=False)
+    load_vit_checkpoint(model, CHECKPOINT_PATH, device)
 
     precision, precision_per_class = compute_macro_precision(model, test_loader, device)
     

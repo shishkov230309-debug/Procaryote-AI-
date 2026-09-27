@@ -6,7 +6,7 @@ import gradio as gr
 from PIL import Image
 from transformers import AutoImageProcessor
 
-from model import create_vit_model
+from model import create_vit_model, load_vit_checkpoint
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "vit_best.pth"
@@ -30,10 +30,7 @@ def _load_model_and_processor():
     model.to(device)
 
     if CHECKPOINT_PATH.exists():
-        state = torch.load(CHECKPOINT_PATH, map_location=device)
-        if isinstance(state, dict) and "state_dict" in state:
-            state = state["state_dict"]
-        model.load_state_dict(state)
+        load_vit_checkpoint(model, CHECKPOINT_PATH, device)
     else:
         raise FileNotFoundError(f"No trained model checkpoint found at {CHECKPOINT_PATH}")
 
