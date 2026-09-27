@@ -5,7 +5,13 @@ from torch.utils.data import DataLoader
 from transformers import AutoImageProcessor
 import matplotlib.pyplot as plt
 import seaborn as sns
-from dataset import ColonyDataset
+from dataset import ColonyDataset, build_class_mapping
+from checkpoint import (
+    load_checkpoint_metadata,
+    validate_checkpoint_mapping,
+    validate_checkpoint_model,
+    validate_preprocessing,
+)
 from model import create_vit_model, load_vit_checkpoint
 from sklearn.metrics import confusion_matrix
 
@@ -81,22 +87,31 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    metadata = load_checkpoint_metadata(CHECKPOINT_PATH)
+    class_mapping = build_class_mapping(CSV_PATH)
+    validate_checkpoint_mapping(metadata, class_mapping, CSV_PATH)
+    validate_checkpoint_model(metadata, MODEL_NAME)
+
     if PROCESSOR_DIR.exists():
         image_processor = AutoImageProcessor.from_pretrained(PROCESSOR_DIR)
     else:
-        image_processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
+        image_processor = AutoImageProcessor.from_pretrained(metadata["model_name"])
+    validate_preprocessing(image_processor, metadata)
 
     test_dataset = ColonyDataset(
         csv_path=str(CSV_PATH),
         split="test",
         image_processor=image_processor,
+        class_mapping=class_mapping,
     )
     test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
 
-    model = create_vit_model(num_classes=test_dataset.num_classes, model_name=MODEL_NAME)
+    model = create_vit_model(
+        num_classes=metadata["num_classes"], model_name=metadata["model_name"]
+    )
     model.to(device)
 
-    load_vit_checkpoint(model, CHECKPOINT_PATH, device)
+    load_vit_checkpoint(model, CHECKPOINT_PATH, device, expected_metadata=metadata)
 
     precision, precision_per_class = compute_macro_precision(model, test_loader, device)
     

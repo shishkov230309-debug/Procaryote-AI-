@@ -16,11 +16,41 @@ train_augment = transforms.Compose(
     ]
 )
 
+
+def build_class_mapping(csv_path):
+    df = pd.read_csv(csv_path)
+    class_names = sorted(df["genus"].dropna().unique().tolist())
+    return {
+        "class_names": class_names,
+        "class_to_idx": {name: idx for idx, name in enumerate(class_names)},
+        "num_classes": len(class_names),
+    }
+
+
+def validate_class_mapping(df, class_mapping):
+    expected = build_class_mapping_from_values(df["genus"])
+    if expected != class_mapping:
+        raise ValueError(
+            "Dataset class mapping does not match the checkpoint mapping."
+        )
+
+
+def build_class_mapping_from_values(values):
+    class_names = sorted(values.dropna().unique().tolist())
+    return {
+        "class_names": class_names,
+        "class_to_idx": {name: idx for idx, name in enumerate(class_names)},
+        "num_classes": len(class_names),
+    }
+
 class ColonyDataset(Dataset):
-    def __init__(self, csv_path, split, image_processor=None, transform=None):
+    def __init__(self, csv_path, split, image_processor=None, transform=None, class_mapping=None):
         self.df = pd.read_csv(csv_path)
-        self.genus_list = sorted(self.df["genus"].dropna().unique())
-        self.genus_to_idx = {genus: idx for idx, genus in enumerate(self.genus_list)}
+        self.class_mapping = class_mapping or build_class_mapping_from_values(self.df["genus"])
+        if class_mapping is not None:
+            validate_class_mapping(self.df, class_mapping)
+        self.genus_list = self.class_mapping["class_names"]
+        self.genus_to_idx = self.class_mapping["class_to_idx"]
 
         self.df = self.df[self.df["split"] == split].reset_index(drop=True)
         

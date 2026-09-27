@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from transformers import AutoImageProcessor
-from dataset import ColonyDataset, train_augment
+from dataset import ColonyDataset, build_class_mapping, train_augment
+from checkpoint import build_checkpoint_metadata, save_checkpoint
 from model import create_vit_model, freeze_backbone
 from pathlib import Path
 
@@ -48,6 +49,7 @@ def main():
         image_processor=image_processor,
         transform=train_augment,
     )
+    class_mapping = build_class_mapping("data/annotated/merged_labels_split.csv")
     val_dataset = ColonyDataset(
         csv_path="data/annotated/merged_labels_split.csv",
         split="val",
@@ -76,13 +78,19 @@ def main():
         shuffle=False,
     )
 
-    model = create_vit_model(num_classes=19, model_name=MODEL_NAME)
+    model = create_vit_model(num_classes=train_dataset.num_classes, model_name=MODEL_NAME)
     model = freeze_backbone(model, unfreeze_layers=4)
     model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    checkpoint_metadata = build_checkpoint_metadata(
+        class_mapping,
+        MODEL_NAME,
+        image_processor,
+        "data/annotated/merged_labels_split.csv",
+    )
 
     num_epochs = 5
     best_val_accuracy = 0.0
@@ -117,7 +125,7 @@ def main():
 
         if val_accuracy > best_val_accuracy:
             best_val_accuracy = val_accuracy
-            torch.save(model.state_dict(), CHECKPOINT_DIR / "vit_best.pth")
+            save_checkpoint(CHECKPOINT_DIR / "vit_best.pth", model, checkpoint_metadata)
             image_processor.save_pretrained(CHECKPOINT_DIR / "vit_image_processor")
 
         print(

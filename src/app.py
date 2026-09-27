@@ -1,43 +1,56 @@
 from pathlib import Path
 
-import pandas as pd
 import torch
 import gradio as gr
 from PIL import Image
 from transformers import AutoImageProcessor
 
 from model import create_vit_model, load_vit_checkpoint
+from checkpoint import (
+    load_checkpoint_metadata,
+    validate_checkpoint_mapping,
+    validate_checkpoint_model,
+    validate_preprocessing,
+)
+from dataset import build_class_mapping
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "vit_best.pth"
 PROCESSOR_DIR = ROOT_DIR / "checkpoints" / "vit_image_processor"
-LABELS_CSV = ROOT_DIR / "data" / "annotated" / "nature_colony_labels_split.csv"
+LABELS_CSV = ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv"
 MODEL_NAME = "google/vit-base-patch16-224"
 
-
-def _load_class_names():
-    df = pd.read_csv(LABELS_CSV)
-    return sorted(df["genus"].dropna().unique().tolist())
-
-
-CLASS_NAMES = _load_class_names()
+CHECKPOINT_METADATA = load_checkpoint_metadata(CHECKPOINT_PATH)
+CLASS_MAPPING = build_class_mapping(LABELS_CSV)
+validate_checkpoint_mapping(CHECKPOINT_METADATA, CLASS_MAPPING, LABELS_CSV)
+validate_checkpoint_model(CHECKPOINT_METADATA, MODEL_NAME)
+CLASS_NAMES = CHECKPOINT_METADATA["class_names"]
 
 
 def _load_model_and_processor():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = create_vit_model(num_classes=len(CLASS_NAMES), model_name=MODEL_NAME)
+    model = create_vit_model(
+        num_classes=CHECKPOINT_METADATA["num_classes"],
+        model_name=CHECKPOINT_METADATA["model_name"],
+    )
     model.to(device)
 
     if CHECKPOINT_PATH.exists():
-        load_vit_checkpoint(model, CHECKPOINT_PATH, device)
+        load_vit_checkpoint(
+            model,
+            CHECKPOINT_PATH,
+            device,
+            expected_metadata=CHECKPOINT_METADATA,
+        )
     else:
         raise FileNotFoundError(f"No trained model checkpoint found at {CHECKPOINT_PATH}")
 
     if PROCESSOR_DIR.exists():
         processor = AutoImageProcessor.from_pretrained(PROCESSOR_DIR)
     else:
-        processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
+        processor = AutoImageProcessor.from_pretrained(CHECKPOINT_METADATA["model_name"])
+    validate_preprocessing(processor, CHECKPOINT_METADATA)
 
     model.eval()
     return model, processor, device
