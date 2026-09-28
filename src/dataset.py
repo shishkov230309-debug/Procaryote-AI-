@@ -20,6 +20,10 @@ train_augment = transforms.Compose(
     ]
 )
 
+conservative_train_augment = transforms.Compose(
+    [transforms.RandomHorizontalFlip()]
+)
+
 
 def _read_dataset_csv(csv_path):
     csv_path = Path(csv_path)
@@ -67,6 +71,63 @@ def _read_dataset_csv(csv_path):
 def _resolve_image_path(filename):
     image_path = Path(filename)
     return image_path if image_path.is_absolute() else ROOT_DIR / image_path
+
+
+def _annotation_path(row):
+    image_path = Path(row["filename"])
+    if row.get("source_dataset") == "22022540":
+        return ROOT_DIR / "data" / "raw" / "22022540" / "label" / "annot_YOLO" / (
+            f"{image_path.stem}.txt"
+        )
+    return (
+        ROOT_DIR
+        / "data"
+        / "raw"
+        / "nature_colony"
+        / "label"
+        / "label"
+        / "YOLO_txt"
+        / f"{row['species_code']}_txt"
+        / f"{image_path.stem}.txt"
+    )
+
+
+def _read_yolo_boxes(row, image_size):
+    annotation_path = _annotation_path(row)
+    if not annotation_path.is_file():
+        raise FileNotFoundError(f"Missing annotation file: {annotation_path}")
+
+    image_width, image_height = image_size
+    boxes = []
+    for line_number, line in enumerate(
+        annotation_path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        values = line.split()
+        if len(values) != 5:
+            raise ValueError(f"Malformed YOLO row {annotation_path}:{line_number}")
+        try:
+            _, center_x, center_y, width, height = map(float, values)
+        except ValueError as exc:
+            raise ValueError(
+                f"Non-numeric YOLO row {annotation_path}:{line_number}"
+            ) from exc
+
+        if not all(0.0 < value <= 1.0 for value in (width, height)):
+            raise ValueError(f"Invalid YOLO box size at {annotation_path}:{line_number}")
+        if not all(0.0 <= value <= 1.0 for value in (center_x, center_y)):
+            raise ValueError(f"Invalid YOLO box center at {annotation_path}:{line_number}")
+
+        xmin = max(0, int((center_x - width / 2) * image_width))
+        ymin = max(0, int((center_y - height / 2) * image_height))
+        xmax = min(image_width, int((center_x + width / 2) * image_width))
+        ymax = min(image_height, int((center_y + height / 2) * image_height))
+        if xmax <= xmin or ymax <= ymin:
+            raise ValueError(f"Empty YOLO crop at {annotation_path}:{line_number}")
+        boxes.append((xmin, ymin, xmax, ymax))
+
+    if not boxes:
+        raise ValueError(f"Annotation file has no boxes: {annotation_path}")
+    return boxes
 
 
 def _validate_image_files(df, csv_path):
@@ -139,7 +200,16 @@ def build_class_mapping_from_values(values):
     }
 
 class ColonyDataset(Dataset):
-    def __init__(self, csv_path, split, image_processor=None, transform=None, class_mapping=None):
+    def __init__(
+        self,
+        csv_path,
+        split,
+        image_processor=None,
+        transform=None,
+        class_mapping=None,
+        crop_boxes=False,
+        crop_margin=0.1,
+    ):
         csv_path = Path(csv_path)
         self.df = _read_dataset_csv(csv_path)
         self.class_mapping = class_mapping or build_class_mapping_from_values(self.df["genus"])
@@ -158,18 +228,48 @@ class ColonyDataset(Dataset):
         self.genus_to_idx = self.class_mapping["class_to_idx"]
 
         self.df = split_df
-        
         self.image_processor = image_processor
         self.transform = transform
+        self.crop_boxes = crop_boxes
+        self.crop_margin = crop_margin
+        self.samples = [(index, None) for index in self.df.index]
+        if self.crop_boxes:
+            self.samples = []
+            for index, row in self.df.iterrows():
+                image_path = _resolve_image_path(row["filename"])
+                with Image.open(image_path) as image:
+                    boxes = _read_yolo_boxes(row, image.size)
+                for box in boxes:
+                    self.samples.append((index, box))
+            if not self.samples:
+                raise ValueError(f"No valid colony crops found for split {split!r}.")
 
     @property
     def num_classes(self):
         return len(self.genus_list)
 
     def __getitem__(self, idx):
-        row = self.df.iloc[idx]
+        row_index, box = self.samples[idx]
+        row = self.df.iloc[row_index]
         image_path = _resolve_image_path(row["filename"])
         image = Image.open(image_path).convert("RGB")
+
+        if box is not None:
+            xmin, ymin, xmax, ymax = box
+            width = xmax - xmin
+            height = ymax - ymin
+            margin_x = int(width * self.crop_margin)
+            margin_y = int(height * self.crop_margin)
+            image = image.crop(
+                (
+                    max(0, xmin - margin_x),
+                    max(0, ymin - margin_y),
+                    min(image.width, xmax + margin_x),
+                    min(image.height, ymax + margin_y),
+                )
+            )
+            if image.width == 0 or image.height == 0:
+                raise ValueError(f"Empty crop generated for {row['filename']}")
 
         if self.transform is not None:
             image = self.transform(image)
@@ -182,7 +282,7 @@ class ColonyDataset(Dataset):
         return image, torch.tensor(label_index, dtype=torch.long)
 
     def __len__(self):
-        return len(self.df)
+        return len(self.samples)
 
 
 
