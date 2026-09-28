@@ -1,11 +1,11 @@
+from dataclasses import dataclass
 from pathlib import Path
 
-import torch
 import gradio as gr
+import torch
 from PIL import Image
 from transformers import AutoImageProcessor
 
-from model import create_vit_model, load_vit_checkpoint
 from checkpoint import (
     load_checkpoint_metadata,
     validate_checkpoint_mapping,
@@ -21,44 +21,78 @@ PROCESSOR_DIR = ROOT_DIR / "checkpoints" / "vit_image_processor"
 LABELS_CSV = ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv"
 MODEL_NAME = "google/vit-base-patch16-224"
 
-CHECKPOINT_METADATA = load_checkpoint_metadata(CHECKPOINT_PATH)
-CLASS_MAPPING = build_class_mapping(LABELS_CSV)
-validate_checkpoint_mapping(CHECKPOINT_METADATA, CLASS_MAPPING, LABELS_CSV)
-validate_checkpoint_model(CHECKPOINT_METADATA, MODEL_NAME)
-CLASS_NAMES = CHECKPOINT_METADATA["class_names"]
-THRESHOLDING = CHECKPOINT_METADATA.get("thresholding")
+
+@dataclass
+class ApplicationState:
+    model: object
+    image_processor: object
+    device: torch.device
+    class_names: list
+    thresholding: dict | None
 
 
-def _load_model_and_processor():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+APPLICATION_STATE = None
 
-    model = create_vit_model(
-        num_classes=CHECKPOINT_METADATA["num_classes"],
-        model_name=CHECKPOINT_METADATA["model_name"],
-    )
-    model.to(device)
 
-    if CHECKPOINT_PATH.exists():
+def _validate_model_architecture(model, metadata):
+    expected_config = metadata.get("model_config")
+    if expected_config is not None and model.config.to_dict() != expected_config:
+        raise RuntimeError(
+            "The checkpoint model configuration does not match the configured "
+            "ViT architecture."
+        )
+
+
+def load_application():
+    """Load and validate all inference resources before the app starts."""
+    global APPLICATION_STATE
+    try:
+        if not CHECKPOINT_PATH.is_file():
+            raise FileNotFoundError(f"Checkpoint not found: {CHECKPOINT_PATH}")
+        if not PROCESSOR_DIR.is_dir():
+            raise FileNotFoundError(
+                f"Saved image processor not found: {PROCESSOR_DIR}. "
+                "Retrain or restore the matching checkpoint package."
+            )
+
+        metadata = load_checkpoint_metadata(CHECKPOINT_PATH)
+        class_mapping = build_class_mapping(LABELS_CSV)
+        validate_checkpoint_mapping(metadata, class_mapping, LABELS_CSV)
+        validate_checkpoint_model(metadata, MODEL_NAME)
+
+        image_processor = AutoImageProcessor.from_pretrained(PROCESSOR_DIR)
+        validate_preprocessing(image_processor, metadata)
+
+        from model import create_vit_model, load_vit_checkpoint
+
+        model = create_vit_model(
+            num_classes=metadata["num_classes"],
+            model_name=metadata["model_name"],
+        )
+        _validate_model_architecture(model, metadata)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
         load_vit_checkpoint(
             model,
             CHECKPOINT_PATH,
             device,
-            expected_metadata=CHECKPOINT_METADATA,
+            expected_metadata=metadata,
         )
-    else:
-        raise FileNotFoundError(f"No trained model checkpoint found at {CHECKPOINT_PATH}")
+        model.eval()
+    except Exception as exc:
+        raise RuntimeError(
+            "Procaryote AI startup failed while validating the checkpoint package: "
+            f"{exc}"
+        ) from exc
 
-    if PROCESSOR_DIR.exists():
-        processor = AutoImageProcessor.from_pretrained(PROCESSOR_DIR)
-    else:
-        processor = AutoImageProcessor.from_pretrained(CHECKPOINT_METADATA["model_name"])
-    validate_preprocessing(processor, CHECKPOINT_METADATA)
-
-    model.eval()
-    return model, processor, device
-
-
-MODEL, IMAGE_PROCESSOR, DEVICE = _load_model_and_processor()
+    APPLICATION_STATE = ApplicationState(
+        model=model,
+        image_processor=image_processor,
+        device=device,
+        class_names=list(class_mapping["class_names"]),
+        thresholding=metadata.get("thresholding"),
+    )
+    return APPLICATION_STATE
 
 
 def _to_rgb_image(image_input):
@@ -84,33 +118,38 @@ def _to_rgb_image(image_input):
 
 @torch.inference_mode()
 def predict_species(image_input):
+    if APPLICATION_STATE is None:
+        return "Application is not initialized; checkpoint validation has not completed."
+
     try:
         image = _to_rgb_image(image_input)
     except Exception as exc:
         return f"Image error: {exc}"
 
-    inputs = IMAGE_PROCESSOR(images=image, return_tensors="pt")
-    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+    inputs = APPLICATION_STATE.image_processor(images=image, return_tensors="pt")
+    inputs = {k: v.to(APPLICATION_STATE.device) for k, v in inputs.items()}
 
-    outputs = MODEL(**inputs)
-    logits = outputs.logits
-    probs = torch.softmax(logits, dim=-1)
-    probability_array = probs.cpu().numpy()
+    outputs = APPLICATION_STATE.model(**inputs)
+    probabilities = torch.softmax(outputs.logits, dim=-1).cpu().numpy()
+    threshold = (
+        APPLICATION_STATE.thresholding["selected"]["threshold"]
+        if APPLICATION_STATE.thresholding
+        else 0.0
+    )
     pred_indices, predicted_probabilities, uncertain = apply_global_threshold(
-        probability_array,
-        THRESHOLDING["selected"]["threshold"] if THRESHOLDING else 0.0,
+        probabilities,
+        threshold,
     )
     pred_idx = int(pred_indices[0])
     predicted_probability = float(predicted_probabilities[0] * 100)
-    if THRESHOLDING and bool(uncertain[0]):
-        threshold = THRESHOLDING["selected"]["threshold"] * 100
+
+    if APPLICATION_STATE.thresholding and bool(uncertain[0]):
         return (
             f"Uncertain prediction: predicted probability {predicted_probability:.1f}% "
-            f"is below the validation threshold of {threshold:.1f}%."
+            f"is below the validation threshold of {threshold * 100:.1f}%."
         )
 
-    pred_label = CLASS_NAMES[pred_idx].replace("_", " ").title()
-
+    pred_label = APPLICATION_STATE.class_names[pred_idx].replace("_", " ").title()
     return f"Prediction: {pred_label} (predicted probability {predicted_probability:.1f}%)"
 
 
@@ -124,4 +163,8 @@ demo = gr.Interface(
 
 
 if __name__ == "__main__":
+    try:
+        load_application()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
     demo.launch(debug=True)
