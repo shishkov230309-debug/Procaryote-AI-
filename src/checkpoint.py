@@ -1,4 +1,7 @@
 from enum import Enum
+import os
+from pathlib import Path
+import tempfile
 
 import torch
 import transformers
@@ -24,8 +27,11 @@ def build_checkpoint_metadata(
     model_name,
     image_processor,
     training_csv_path,
+    model_config=None,
+    training_config=None,
+    random_seed=None,
 ):
-    return {
+    metadata = {
         "metadata_version": METADATA_VERSION,
         "class_names": list(class_mapping["class_names"]),
         "class_to_idx": dict(class_mapping["class_to_idx"]),
@@ -34,17 +40,37 @@ def build_checkpoint_metadata(
         "transformers_version": transformers.__version__,
         "preprocessing_config": _to_safe_metadata(image_processor.to_dict()),
         "training_csv_path": str(training_csv_path),
+        "torch_version": torch.__version__,
     }
+    if model_config is not None:
+        metadata["model_config"] = _to_safe_metadata(model_config)
+    if training_config is not None:
+        metadata["training_config"] = _to_safe_metadata(training_config)
+    if random_seed is not None:
+        metadata["random_seed"] = int(random_seed)
+    return metadata
 
 
 def save_checkpoint(path, model, metadata):
-    torch.save(
-        {
-            "state_dict": model.state_dict(),
-            "metadata": metadata,
-        },
-        path,
-    )
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+        torch.save(
+            {
+                "state_dict": model.state_dict(),
+                "metadata": _to_safe_metadata(metadata),
+            },
+            temporary_path,
+        )
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
 
 
 def load_checkpoint_metadata(path):
