@@ -23,6 +23,7 @@ from dataset import (
 )
 from checkpoint import build_checkpoint_metadata, save_checkpoint
 from model import create_vit_model, freeze_backbone, load_vit_checkpoint
+from thresholding import select_global_threshold, threshold_tradeoff
 
 MODEL_NAME = "google/vit-base-patch16-224"
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -171,6 +172,23 @@ def evaluate(model, loader, criterion, device, use_amp):
     )
     metrics["loss"] = running_loss / total
     return metrics
+
+
+def collect_predictions(model, loader, device, use_amp):
+    model.eval()
+    all_labels = []
+    all_predictions = []
+    all_probabilities = []
+    with torch.no_grad():
+        for images, labels in loader:
+            images = images.to(device)
+            with torch.cuda.amp.autocast(enabled=use_amp):
+                logits = model(pixel_values=images).logits
+            probabilities = torch.softmax(logits, dim=-1)
+            all_labels.extend(labels.tolist())
+            all_predictions.extend(probabilities.argmax(dim=-1).cpu().tolist())
+            all_probabilities.extend(probabilities.cpu().tolist())
+    return all_labels, all_predictions, all_probabilities
 
 
 def _build_optimizer(model, experiment):
@@ -403,7 +421,39 @@ def run_experiment(experiment):
         raise RuntimeError("No valid validation metrics were produced; no checkpoint selected.")
 
     selected_metadata = load_vit_checkpoint(model, checkpoint_path, device)
+    validation_labels, validation_predictions, validation_probabilities = (
+        collect_predictions(model, val_loader, device, use_amp)
+    )
+    thresholding = select_global_threshold(
+        validation_labels,
+        validation_predictions,
+        np.max(np.asarray(validation_probabilities), axis=1),
+        train_dataset.num_classes,
+    )
+    selected_metadata["thresholding"] = thresholding
+    save_checkpoint(checkpoint_path, model, selected_metadata)
+    validation_threshold_report = thresholding["selected"]
+    print(
+        "Validation threshold: "
+        f"{validation_threshold_report['threshold']:.4f}; "
+        f"precision={validation_threshold_report['macro_precision']:.4f}; "
+        f"recall={validation_threshold_report['macro_recall']:.4f}; "
+        f"coverage={validation_threshold_report['coverage']:.4f}; "
+        f"rejected={validation_threshold_report['rejected']}"
+    )
     test_metrics = evaluate(model, test_loader, criterion, device, use_amp)
+    test_labels, test_predictions, test_probabilities = collect_predictions(
+        model, test_loader, device, use_amp
+    )
+    test_threshold_report = None
+    if test_labels:
+        test_threshold_report = threshold_tradeoff(
+            test_labels,
+            test_predictions,
+            np.max(np.asarray(test_probabilities), axis=1),
+            validation_threshold_report["threshold"],
+            train_dataset.num_classes,
+        )
     if test_metrics is None:
         print("Test split is empty. Skipping final test evaluation.")
     else:
@@ -414,6 +464,12 @@ def run_experiment(experiment):
             f"test weighted precision: {test_metrics['weighted_precision']:.4f} - "
             f"test macro recall: {test_metrics['macro_recall']:.4f} - "
             f"test accuracy: {test_metrics['accuracy']:.4f}"
+        )
+        print(
+            f"Test thresholded: macro precision={test_threshold_report['macro_precision']:.4f}, "
+            f"macro recall={test_threshold_report['macro_recall']:.4f}, "
+            f"coverage={test_threshold_report['coverage']:.4f}, "
+            f"rejected={test_threshold_report['rejected']}"
         )
         for class_name, precision in zip(
             class_mapping["class_names"], test_metrics["per_class_precision"]
@@ -426,6 +482,8 @@ def run_experiment(experiment):
         "selected_epoch": selected_metadata["selected_epoch"],
         "selected_validation_metrics": selected_metadata["selected_validation_metrics"],
         "test_metrics": test_metrics,
+        "thresholding": thresholding,
+        "test_threshold_report": test_threshold_report,
     }
 
 

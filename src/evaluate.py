@@ -14,6 +14,7 @@ from checkpoint import (
 )
 from model import create_vit_model, load_vit_checkpoint
 from sklearn.metrics import confusion_matrix
+from thresholding import threshold_tradeoff
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "vit_best.pth"
@@ -81,6 +82,22 @@ def compute_macro_precision(model, loader, device):
     return macro_precision, precision_per_class
 
 
+def collect_threshold_inputs(model, loader, device):
+    model.eval()
+    labels = []
+    predictions = []
+    probabilities = []
+    with torch.no_grad():
+        for images, batch_labels in loader:
+            images = images.to(device)
+            outputs = model(pixel_values=images)
+            batch_probabilities = torch.softmax(outputs.logits, dim=-1)
+            labels.extend(batch_labels.tolist())
+            predictions.extend(batch_probabilities.argmax(dim=-1).cpu().tolist())
+            probabilities.extend(batch_probabilities.max(dim=-1).values.cpu().tolist())
+    return labels, predictions, probabilities
+
+
 def main():
     if not CHECKPOINT_PATH.exists():
         raise FileNotFoundError(f"No trained checkpoint found at: {CHECKPOINT_PATH}")
@@ -118,6 +135,27 @@ def main():
     print(f"Test precision over {test_dataset.num_classes} species: {precision:.4f}")
     for idx, species in enumerate(test_dataset.genus_list):
         print(f"{species}: {precision_per_class[idx].item():.4f}")
+
+    thresholding = metadata.get("thresholding")
+    if thresholding:
+        labels, predictions, probabilities = collect_threshold_inputs(
+            model, test_loader, device
+        )
+        report = threshold_tradeoff(
+            labels,
+            predictions,
+            probabilities,
+            thresholding["selected"]["threshold"],
+            test_dataset.num_classes,
+        )
+        print(
+            "Thresholded test metrics using validation threshold "
+            f"{report['threshold']:.4f}: precision={report['macro_precision']:.4f}, "
+            f"recall={report['macro_recall']:.4f}, coverage={report['coverage']:.4f}, "
+            f"rejected={report['rejected']}"
+        )
+    else:
+        print("No validation-derived threshold is stored; reporting raw argmax only.")
 
 
 if __name__ == "__main__":

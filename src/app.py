@@ -13,6 +13,7 @@ from checkpoint import (
     validate_preprocessing,
 )
 from dataset import build_class_mapping
+from thresholding import apply_global_threshold
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "vit_best.pth"
@@ -25,6 +26,7 @@ CLASS_MAPPING = build_class_mapping(LABELS_CSV)
 validate_checkpoint_mapping(CHECKPOINT_METADATA, CLASS_MAPPING, LABELS_CSV)
 validate_checkpoint_model(CHECKPOINT_METADATA, MODEL_NAME)
 CLASS_NAMES = CHECKPOINT_METADATA["class_names"]
+THRESHOLDING = CHECKPOINT_METADATA.get("thresholding")
 
 
 def _load_model_and_processor():
@@ -93,11 +95,23 @@ def predict_species(image_input):
     outputs = MODEL(**inputs)
     logits = outputs.logits
     probs = torch.softmax(logits, dim=-1)
-    pred_idx = int(probs.argmax(dim=-1).item())
-    pred_label = CLASS_NAMES[pred_idx].replace("_", " ").title()
-    confidence = float(probs[0, pred_idx].item() * 100)
+    probability_array = probs.cpu().numpy()
+    pred_indices, predicted_probabilities, uncertain = apply_global_threshold(
+        probability_array,
+        THRESHOLDING["selected"]["threshold"] if THRESHOLDING else 0.0,
+    )
+    pred_idx = int(pred_indices[0])
+    predicted_probability = float(predicted_probabilities[0] * 100)
+    if THRESHOLDING and bool(uncertain[0]):
+        threshold = THRESHOLDING["selected"]["threshold"] * 100
+        return (
+            f"Uncertain prediction: predicted probability {predicted_probability:.1f}% "
+            f"is below the validation threshold of {threshold:.1f}%."
+        )
 
-    return f"Prediction: {pred_label} ({confidence:.1f}% confidence)"
+    pred_label = CLASS_NAMES[pred_idx].replace("_", " ").title()
+
+    return f"Prediction: {pred_label} (predicted probability {predicted_probability:.1f}%)"
 
 
 demo = gr.Interface(
