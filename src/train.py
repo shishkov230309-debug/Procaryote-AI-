@@ -555,4 +555,5 @@ def main():
 
 
 if __name__ == "__main__":
+    print(f"Training is using {'CUDA' if torch.cuda.is_available() else 'CPU'}")
     main()
