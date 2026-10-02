@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from transformers import ViTForImageClassification
 EXPECTED_NUM_CLASSES = 19
-
+torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
 
 def _get_encoder_layers(model):
     encoder = getattr(getattr(model, "vit", None), "encoder", None)
