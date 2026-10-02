@@ -31,6 +31,8 @@ PROCESSOR_DIR = ROOT_DIR / "checkpoints" / "vit_image_processor"
 MODEL_NAME = "google/vit-base-patch16-224"
 CSV_PATH = ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv"
 BATCH_SIZE = 8
+IGNORED_CONFIG_KEYS = {"id2label", "label2id", "_name_or_path", "transformers_version","dtype","torch_type"}
+
 
 
 def _resolve_training_csv(metadata):
@@ -51,11 +53,19 @@ def _validate_model_architecture(model, metadata):
     expected_config = metadata.get("model_config")
     if expected_config is None:
         return
-    if model.config.to_dict() != expected_config:
-        raise RuntimeError(
-            "Checkpoint model configuration does not match the configured "
-            "architecture. Evaluation stopped before loading weights."
-        )
+    expected_config = {k: v for k, v in expected_config.items() if k not in IGNORED_CONFIG_KEYS}
+
+    actual = model.config.to_dict()
+    diffs = [
+            k for k in set(actual) | set(expected_config) 
+            if k not in IGNORED_CONFIG_KEYS and actual.get(k) != expected_config.get(k)
+        ]
+    if diffs:
+            raise RuntimeError(
+                "The checkpoint model configuration does not match the configured "
+                "ViT architecture."
+            )
+        
 
 
 def collect_predictions(model, loader, device):
