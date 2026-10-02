@@ -55,7 +55,7 @@ EXPERIMENTS = {
         class_weighted=False,
         head_learning_rate=LEARNING_RATE,
         backbone_learning_rate=LEARNING_RATE,
-        max_epochs=30,
+        max_epochs=NUM_EPOCHS,
         patience=5,
     ),
     "weighted": ExperimentConfig(
@@ -64,7 +64,7 @@ EXPERIMENTS = {
         class_weighted=True,
         head_learning_rate=LEARNING_RATE,
         backbone_learning_rate=LEARNING_RATE,
-        max_epochs=30,
+        max_epochs=NUM_EPOCHS,
         patience=5,
     ),
     "finetune": ExperimentConfig(
@@ -73,7 +73,7 @@ EXPERIMENTS = {
         class_weighted=False,
         head_learning_rate=1e-4,
         backbone_learning_rate=1e-5,
-        max_epochs=30,
+        max_epochs=NUM_EPOCHS,
         patience=5,
     ),
     "conservative": ExperimentConfig(
@@ -82,7 +82,7 @@ EXPERIMENTS = {
         class_weighted=False,
         head_learning_rate=LEARNING_RATE,
         backbone_learning_rate=LEARNING_RATE,
-        max_epochs=30,
+        max_epochs=NUM_EPOCHS,
         patience=5,
     ),
 }
