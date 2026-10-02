@@ -37,7 +37,7 @@ def create_vit_model(num_classes: int, model_name: str = "google/vit-base-patch1
     return model
 
 def load_vit_checkpoint(model, checkpoint_path, device, expected_metadata=None):
-    state = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    state = torch.load(checkpoint_path, map_location=device, weights_only=False)
     if not isinstance(state, dict) or "state_dict" not in state:
         raise RuntimeError(
             f"Checkpoint at {checkpoint_path} has no metadata-bearing state_dict. "
