@@ -1,11 +1,6 @@
 import torch
-from pathlib import Path    
-from torch import device, nn
+from torch import nn
 from transformers import ViTForImageClassification
-checkpoint_path = Path(__file__).parent / "vit_checkpoint.pth"
-
-torch.serialization.add_safe_globals([torch.torch_version.TorchVersion])
-state = torch.load(checkpoint_path, map_location=device, weights_only=True)
 EXPECTED_NUM_CLASSES = 19
 
 
