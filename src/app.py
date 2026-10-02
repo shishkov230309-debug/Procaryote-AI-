@@ -20,7 +20,7 @@ CHECKPOINT_PATH = ROOT_DIR / "checkpoints" / "vit_best.pth"
 PROCESSOR_DIR = ROOT_DIR / "checkpoints" / "vit_image_processor"
 LABELS_CSV = ROOT_DIR / "data" / "annotated" / "merged_labels_split.csv"
 MODEL_NAME = "google/vit-base-patch16-224"
-
+IGNORED_CONFIG_KEYS = {"id2label", "label2id", "_name_or_path", "transformers_version","dtype","torch_type"}
 
 @dataclass
 class ApplicationState:
@@ -36,7 +36,14 @@ APPLICATION_STATE = None
 
 def _validate_model_architecture(model, metadata):
     expected_config = metadata.get("model_config")
-    if expected_config is not None and model.config.to_dict() != expected_config:
+    if expected_config is None:
+        return
+    actual = model.config.to_dict()
+    diffs = [
+        k for k in set(actual) | set(expected_config) 
+        if k not in IGNORED_CONFIG_KEYS and actual.get(k) != expected_config.get(k)
+    ]
+    if diffs:
         raise RuntimeError(
             "The checkpoint model configuration does not match the configured "
             "ViT architecture."
