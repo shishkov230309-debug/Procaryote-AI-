@@ -74,7 +74,7 @@ def save_checkpoint(path, model, metadata):
 
 
 def load_checkpoint_metadata(path):
-    checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
     if not isinstance(checkpoint, dict) or "metadata" not in checkpoint:
         raise RuntimeError(
             f"Checkpoint at {path} has no class mapping metadata. "
