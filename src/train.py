@@ -489,11 +489,33 @@ def run_experiment(experiment):
 
 def main():
     parser = argparse.ArgumentParser(description="Run a controlled precision experiment.")
-    parser.add_argument(
+    experiment_group = parser.add_mutually_exclusive_group()
+    experiment_group.add_argument(
         "--experiment",
         choices=sorted(EXPERIMENTS),
         default="baseline",
         help="Experiment configuration to run.",
+    )
+    experiment_group.add_argument(
+        "--weighted",
+        dest="experiment",
+        action="store_const",
+        const="weighted",
+        help="Shortcut for --experiment weighted.",
+    )
+    experiment_group.add_argument(
+        "--finetune",
+        dest="experiment",
+        action="store_const",
+        const="finetune",
+        help="Shortcut for --experiment finetune.",
+    )
+    experiment_group.add_argument(
+        "--conservative",
+        dest="experiment",
+        action="store_const",
+        const="conservative",
+        help="Shortcut for --experiment conservative.",
     )
     parser.add_argument(
         "--all",
